@@ -73,5 +73,12 @@ if err != nil {
 
 fmt.Println(response)
 // response = {
+//   "type":1,
+//   "data":{
+//     "rows":[
+//       {"LAT":"37.80998","LON":"-122.4215","SPEED":"0", ...},
+//       ...
+//     ]
+//   }
 // }
 ```
