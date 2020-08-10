@@ -124,7 +124,9 @@ func ToFloat64(val interface{}) (result float64) {
 	case int64:
 		result = float64(val.(int64))
 	case string:
-		result, _ = strconv.ParseFloat(val.(string), 64)
+		s := val.(string)
+		s = strings.ReplaceAll(s, ",", "")
+		result, _ = strconv.ParseFloat(s, 64)
 	case float64:
 		result = val.(float64)
 	default:
