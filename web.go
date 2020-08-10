@@ -65,7 +65,9 @@ func ToInt(val interface{}) (result int) {
 	case int64:
 		result = int(val.(int64))
 	case string:
-		tmp, _ := strconv.ParseInt(val.(string), 10, 32)
+		s := val.(string)
+		s = strings.ReplaceAll(s, ",", "")
+		tmp, _ := strconv.ParseInt(s, 10, 32)
 		result = int(tmp)
 	case float64:
 		result = int(val.(float64))
@@ -85,7 +87,9 @@ func ToInt64(val interface{}) (result int64) {
 	case int64:
 		result = val.(int64)
 	case string:
-		tmp, _ := strconv.ParseInt(val.(string), 10, 64)
+		s := val.(string)
+		s = strings.ReplaceAll(s, ",", "")
+		tmp, _ := strconv.ParseInt(s, 10, 64)
 		result = int64(tmp)
 	case float64:
 		result = int64(val.(float64))
