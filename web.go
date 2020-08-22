@@ -7,10 +7,11 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
-// Request2 makes an HTTP request of the given URL and returns the response object.
-func Request2(url string, headers map[string]string) (*http.Response, error) {
+// Request2 makes an HTTP request of the given URL (with retry) and returns the response object.
+func Request2(url string, headers map[string]string) (resp *http.Response, err error) {
 	client := &http.Client{}
 	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set("X-Requested-With", "XMLHttpRequest")
@@ -19,12 +20,20 @@ func Request2(url string, headers map[string]string) (*http.Response, error) {
 		req.Header.Set(header, value)
 	}
 
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
+	tries := 1
+	for {
+		resp, err = client.Do(req)
+		if err == nil && resp.StatusCode < 500 {
+			break
+		}
+		if tries >= 4 {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+		tries++
 	}
 
-	return resp, nil
+	return
 }
 
 // Request makes an HTTP request of the given URL and returns the resulting string.
