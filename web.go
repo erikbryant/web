@@ -38,18 +38,7 @@ func Request2(url string, headers map[string]string) (resp *http.Response, err e
 
 // Request makes an HTTP request of the given URL and returns the resulting string.
 func Request(url string, headers map[string]string) (string, error) {
-	client := &http.Client{}
-	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Set("X-Requested-With", "XMLHttpRequest")
-
-	for header, value := range headers {
-		req.Header.Set(header, value)
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
-	}
+	resp, err := Request2(url, headers)
 
 	s, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -59,9 +48,14 @@ func Request(url string, headers map[string]string) (string, error) {
 	return string(s), nil
 }
 
-// RequestJSON makes an HTTP request of the given URL and returns the resulting JSON map.
+// RequestJSON makes an HTTP request (with retries) of the given URL and returns the resulting JSON map.
 func RequestJSON(url string, headers map[string]string) (map[string]interface{}, error) {
-	resp, err := Request(url, headers)
+	response, err := Request2(url, headers)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
 	}
