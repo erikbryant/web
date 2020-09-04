@@ -55,27 +55,19 @@ func RequestJSON(url string, headers map[string]string) (map[string]interface{},
 		return nil, err
 	}
 
-	resp, err := ioutil.ReadAll(response.Body)
+	contents, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
 	}
 
-	dec := json.NewDecoder(strings.NewReader(string(resp)))
-	var m interface{}
-	err = dec.Decode(&m)
+	var jsonObject map[string]interface{}
+
+	err = json.Unmarshal(contents, &jsonObject)
 	if err != nil {
 		return nil, err
 	}
 
-	// If the web request was successful we should get back a
-	// map in JSON form. If it failed we should get back an error
-	// message in string form. Make sure we got a map.
-	f, ok := m.(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("RequestJSON: Expected a map, got: /%s/", string(resp))
-	}
-
-	return f, nil
+	return jsonObject, nil
 }
 
 // ToInt translates an arbitrary type to an int if possible, otherwise panic.
