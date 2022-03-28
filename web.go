@@ -125,6 +125,8 @@ func ToString(val interface{}) (result string) {
 		result = val.(string)
 	case float64:
 		result = strconv.FormatFloat(val.(float64), 'f', -1, 64)
+	case nil:
+		result = ""
 	default:
 		fmt.Println("Unknown type", val)
 		result = val.(string) // Force a panic.

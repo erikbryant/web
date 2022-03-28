@@ -64,6 +64,7 @@ func TestToString(t *testing.T) {
 		{int64(121), "121"},
 		{string("23"), "23"},
 		{float64(99.4), "99.4"},
+		{nil, ""},
 	}
 
 	for _, testCase := range testCases {
