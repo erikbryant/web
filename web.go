@@ -3,7 +3,7 @@ package web
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -38,9 +38,9 @@ func Request2(url string, headers map[string]string) (resp *http.Response, err e
 
 // Request makes an HTTP request of the given URL and returns the resulting string.
 func Request(url string, headers map[string]string) (string, error) {
-	resp, err := Request2(url, headers)
+	resp, _ := Request2(url, headers)
 
-	s, err := ioutil.ReadAll(resp.Body)
+	s, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
@@ -55,7 +55,7 @@ func RequestJSON(url string, headers map[string]string) (map[string]interface{},
 		return nil, err
 	}
 
-	contents, err := ioutil.ReadAll(response.Body)
+	contents, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -72,21 +72,21 @@ func RequestJSON(url string, headers map[string]string) (map[string]interface{},
 
 // ToInt translates an arbitrary type to an int if possible, otherwise panic.
 func ToInt(val interface{}) (result int) {
-	switch val.(type) {
+	switch val := val.(type) {
 	case int:
-		result = val.(int)
+		result = val
 	case int64:
-		result = int(val.(int64))
+		result = int(val)
 	case string:
-		s := val.(string)
+		s := val
 		s = strings.ReplaceAll(s, ",", "")
 		tmp, _ := strconv.ParseInt(s, 10, 32)
 		result = int(tmp)
 	case float64:
-		result = int(val.(float64))
+		result = int(val)
 	default:
 		fmt.Println("Unknown type", val)
-		result = val.(int) // Force a panic.
+		result = val.(int) // Force a panic
 	}
 
 	return result
@@ -94,21 +94,21 @@ func ToInt(val interface{}) (result int) {
 
 // ToInt64 translates an arbitrary type to an int if possible, otherwise panic.
 func ToInt64(val interface{}) (result int64) {
-	switch val.(type) {
+	switch val := val.(type) {
 	case int:
-		result = int64(val.(int))
+		result = int64(val)
 	case int64:
-		result = val.(int64)
+		result = val
 	case string:
-		s := val.(string)
+		s := val
 		s = strings.ReplaceAll(s, ",", "")
 		tmp, _ := strconv.ParseInt(s, 10, 64)
 		result = int64(tmp)
 	case float64:
-		result = int64(val.(float64))
+		result = int64(val)
 	default:
 		fmt.Println("Unknown type", val)
-		result = val.(int64) // Force a panic.
+		result = val.(int64) // Force a panic
 	}
 
 	return result
@@ -116,15 +116,15 @@ func ToInt64(val interface{}) (result int64) {
 
 // ToString translates an arbitrary type to a string if possible, otherwise panic.
 func ToString(val interface{}) (result string) {
-	switch val.(type) {
+	switch val := val.(type) {
 	case int:
-		result = strconv.FormatInt(int64(val.(int)), 10)
+		result = strconv.FormatInt(int64(val), 10)
 	case int64:
-		result = strconv.FormatInt(val.(int64), 10)
+		result = strconv.FormatInt(val, 10)
 	case string:
-		result = val.(string)
+		result = val
 	case float64:
-		result = strconv.FormatFloat(val.(float64), 'f', -1, 64)
+		result = strconv.FormatFloat(val, 'f', -1, 64)
 	case nil:
 		result = ""
 	default:
@@ -137,17 +137,17 @@ func ToString(val interface{}) (result string) {
 
 // ToFloat64 translates an arbitrary type to a float64 if possible, otherwise panic.
 func ToFloat64(val interface{}) (result float64) {
-	switch val.(type) {
+	switch val := val.(type) {
 	case int:
-		result = float64(val.(int))
+		result = float64(val)
 	case int64:
-		result = float64(val.(int64))
+		result = float64(val)
 	case string:
-		s := val.(string)
+		s := val
 		s = strings.ReplaceAll(s, ",", "")
 		result, _ = strconv.ParseFloat(s, 64)
 	case float64:
-		result = val.(float64)
+		result = val
 	default:
 		fmt.Println("Unknown type", val)
 		result = val.(float64) // Force a panic.
