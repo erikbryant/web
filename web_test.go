@@ -88,3 +88,71 @@ func TestToFloat64(t *testing.T) {
 		}
 	}
 }
+
+func TestMsiValue(t *testing.T) {
+	testCases := []struct {
+		msi         interface{}
+		keys        []string
+		expected    interface{}
+		shouldError bool
+	}{
+		{nil, nil, nil, false},
+		{map[string]interface{}{}, []string{"bad_key"}, nil, true},
+		{map[string]interface{}{
+			"good_key": nil,
+		}, []string{"good_key"}, nil, false},
+		{map[string]interface{}{
+			"good_key": 5,
+		}, []string{"good_key"}, 5, false},
+		{map[string]interface{}{
+			"good_key": "five",
+		}, []string{"good_key"}, "five", false},
+	}
+	for _, testCase := range testCases {
+		answer, err := MsiValue(testCase.msi, testCase.keys)
+		if err == nil && testCase.shouldError {
+			t.Errorf("ERROR: For %v should have errored", testCase.keys)
+		}
+		if err != nil && !testCase.shouldError {
+			t.Errorf("ERROR: For %v got unexpected error %v", testCase.keys, err)
+		}
+		if answer != testCase.expected {
+			t.Errorf("ERROR: For %v expected %v, got %v", testCase.keys, testCase.expected, answer)
+		}
+	}
+}
+
+func TestMsiValued(t *testing.T) {
+	testCases := []struct {
+		msi         interface{}
+		keys        []string
+		def         interface{}
+		expected    interface{}
+		shouldError bool
+	}{
+		{nil, nil, nil, nil, false},
+		{nil, nil, "notFound", "notFound", false},
+		{map[string]interface{}{}, []string{"bad_key"}, nil, nil, true},
+		{map[string]interface{}{
+			"good_key": nil,
+		}, []string{"good_key"}, "gotNil", "gotNil", false},
+		{map[string]interface{}{
+			"good_key": 5,
+		}, []string{"good_key"}, 99, 5, false},
+		{map[string]interface{}{
+			"good_key": "five",
+		}, []string{"good_key"}, "four", "five", false},
+	}
+	for _, testCase := range testCases {
+		answer, err := MsiValued(testCase.msi, testCase.keys, testCase.def)
+		if err == nil && testCase.shouldError {
+			t.Errorf("ERROR: For %v should have errored", testCase.keys)
+		}
+		if err != nil && !testCase.shouldError {
+			t.Errorf("ERROR: For %v got unexpected error %v", testCase.keys, err)
+		}
+		if answer != testCase.expected {
+			t.Errorf("ERROR: For %v expected %v, got %v", testCase.keys, testCase.expected, answer)
+		}
+	}
+}
