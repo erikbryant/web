@@ -4,17 +4,41 @@ API for making HTTP REST requests.
 
 ## Usage (plain text)
 
-If the response is plain text, use `Request`.
+If you just want the response and it is plain text, use `RequestBody`.
 
 ```golang
+package thingy
+
 import (
   "github.com/erikbryant/web"
 )
 
-json, err := web.RequestJSON("https://www.vesselfinder.com/api/pub/vesselsonmap", {})
+body, err := web.RequestBody("https://www.google.com/", {})
 if err != nil {
   return err
 }
+```
+
+## Usage (inspect response)
+
+If you wish to inspect the response object, use `Request2`.
+
+```golang
+package thingy
+
+import (
+  "github.com/erikbryant/web"
+)
+
+body, err := web.Request2("https://www.google.com/", {})
+if err != nil {
+  return err
+}
+
+code := web.ToInt(error["code"])
+
+fmt.Println(code)
+// 101
 ```
 
 ## Usage (JSON)
@@ -22,6 +46,8 @@ if err != nil {
 If the response is JSON, use `RequestJSON`.
 
 ```golang
+package thingy
+
 import (
   "fmt"
   "github.com/erikbryant/web"

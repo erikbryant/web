@@ -6,14 +6,6 @@ import (
 
 // TODO: create local test HTTP server to return text and JSON responses.
 
-// func TestRequest(t *testing.T) {
-// 	t.Errorf("Not implemented")
-// }
-
-// func TestRequestJSON(t *testing.T) {
-// 	t.Errorf("Not implemented")
-// }
-
 func TestToInt(t *testing.T) {
 	testCases := []struct {
 		value    interface{}
