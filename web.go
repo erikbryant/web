@@ -16,7 +16,13 @@ func Request2(url string, headers map[string]string) (*http.Response, error) {
 	var err error
 
 	client := &http.Client{}
-	req, _ := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	if req == nil {
+		return nil, fmt.Errorf("request object is nil")
+	}
 	req.Header.Set("X-Requested-With", "XMLHttpRequest")
 
 	for header, value := range headers {
