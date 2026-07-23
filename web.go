@@ -52,6 +52,8 @@ func RequestBody(url string, headers map[string]string) (string, error) {
 		return "", err
 	}
 
+	defer resp.Body.Close()
+
 	s, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
@@ -61,18 +63,20 @@ func RequestBody(url string, headers map[string]string) (string, error) {
 }
 
 // RequestJSON makes an HTTP request (with retries) of the given URL and returns the resulting JSON map
-func RequestJSON(url string, headers map[string]string) (map[string]interface{}, error) {
-	response, err := Request2(url, headers)
+func RequestJSON(url string, headers map[string]string) (map[string]any, error) {
+	resp, err := Request2(url, headers)
 	if err != nil {
 		return nil, err
 	}
 
-	contents, err := io.ReadAll(response.Body)
+	defer resp.Body.Close()
+
+	contents, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 
-	var jsonObject map[string]interface{}
+	var jsonObject map[string]any
 
 	err = json.Unmarshal(contents, &jsonObject)
 	if err != nil {
@@ -83,7 +87,7 @@ func RequestJSON(url string, headers map[string]string) (map[string]interface{},
 }
 
 // ToInt converts an interface to an int if possible, otherwise panic
-func ToInt(val interface{}) (result int) {
+func ToInt(val any) (result int) {
 	switch val := val.(type) {
 	case int:
 		result = val
@@ -105,7 +109,7 @@ func ToInt(val interface{}) (result int) {
 }
 
 // ToInt64 converts an interface to an int if possible, otherwise panic
-func ToInt64(val interface{}) (result int64) {
+func ToInt64(val any) (result int64) {
 	switch val := val.(type) {
 	case int:
 		result = int64(val)
@@ -126,7 +130,7 @@ func ToInt64(val interface{}) (result int64) {
 }
 
 // ToString converts an interface to a string if possible, otherwise panic
-func ToString(val interface{}) (result string) {
+func ToString(val any) (result string) {
 	switch val := val.(type) {
 	case int:
 		result = strconv.FormatInt(int64(val), 10)
@@ -147,7 +151,7 @@ func ToString(val interface{}) (result string) {
 }
 
 // ToFloat64 converts an interface to a float64 if possible, otherwise panic
-func ToFloat64(val interface{}) (result float64) {
+func ToFloat64(val any) (result float64) {
 	switch val := val.(type) {
 	case int:
 		result = float64(val)
@@ -168,12 +172,12 @@ func ToFloat64(val interface{}) (result float64) {
 }
 
 // MsiValue returns the value at 'keys' in a map[string]interface{} tree
-func MsiValue(msi interface{}, keys []string) (interface{}, error) {
+func MsiValue(msi any, keys []string) (any, error) {
 	var ok bool
 	value := msi
 
 	for _, key := range keys {
-		value, ok = value.(map[string]interface{})[key]
+		value, ok = value.(map[string]any)[key]
 		if !ok {
 			return nil, fmt.Errorf("key '%s' not found", key)
 		}
@@ -183,7 +187,7 @@ func MsiValue(msi interface{}, keys []string) (interface{}, error) {
 }
 
 // MsiValued returns the value at 'keys' in a map[string]interface{} tree, or a default if value is nil
-func MsiValued(msi interface{}, keys []string, d interface{}) (interface{}, error) {
+func MsiValued(msi any, keys []string, d any) (any, error) {
 	value, err := MsiValue(msi, keys)
 	if value == nil {
 		value = d
