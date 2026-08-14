@@ -10,187 +10,218 @@ import (
 	"time"
 )
 
-// Request2 makes an HTTP request of the given URL (with retry) and returns the response object
-func Request2(url string, headers map[string]string) (*http.Response, error) {
-	var resp *http.Response
-	var err error
+var (
+	maxAttempts = 4
+	retryDelay  = 500 * time.Millisecond
+)
 
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", url, nil)
+var client = &http.Client{
+	Timeout: 30 * time.Second,
+}
+
+// Request makes a GET request to url, retrying transient failures.
+func Request(url string, headers map[string]string) (*http.Response, error) {
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create request: %w", err)
 	}
-	if req == nil {
-		return nil, fmt.Errorf("request object is nil")
-	}
+
 	req.Header.Set("X-Requested-With", "XMLHttpRequest")
 
 	for header, value := range headers {
 		req.Header.Set(header, value)
 	}
 
-	tries := 1
-	for {
-		resp, err = client.Do(req)
-		if err == nil && resp.StatusCode < 500 {
-			break
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		resp, err := client.Do(req)
+		if err != nil {
+			if attempt == maxAttempts {
+				return nil, fmt.Errorf("GET %q: %w", url, err)
+			}
+
+			time.Sleep(retryDelay)
+			continue
 		}
-		if tries >= 4 {
-			break
+
+		// Return all non-5xx responses.
+		if resp.StatusCode < http.StatusInternalServerError {
+			return resp, nil
 		}
-		time.Sleep(500 * time.Millisecond)
-		tries++
+
+		// This is a 5xx response.
+		if attempt == maxAttempts {
+			return resp, nil
+		}
+
+		// We're going to retry, so this response must be closed.
+		resp.Body.Close()
+
+		time.Sleep(retryDelay)
 	}
 
-	return resp, err
+	// The loop always returns, so we should never get here.
+	return nil, fmt.Errorf("GET %q: request failed after %d attempts", url, maxAttempts)
 }
 
-// RequestBody returns the body of the HTTP response
+// RequestBody makes a GET request and returns the response body as a string.
 func RequestBody(url string, headers map[string]string) (string, error) {
-	resp, err := Request2(url, headers)
+	resp, err := Request(url, headers)
 	if err != nil {
 		return "", err
 	}
-
 	defer resp.Body.Close()
 
-	s, err := io.ReadAll(resp.Body)
-	if err != nil {
+	if err := checkStatus(resp); err != nil {
 		return "", err
 	}
 
-	return string(s), nil
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("read response body from %q: %w", url, err)
+	}
+
+	return string(body), nil
 }
 
-// RequestJSON makes an HTTP request (with retries) of the given URL and returns the resulting JSON map
+// RequestJSON makes a GET request and decodes the response as a JSON object.
 func RequestJSON(url string, headers map[string]string) (map[string]any, error) {
-	resp, err := Request2(url, headers)
+	resp, err := Request(url, headers)
 	if err != nil {
 		return nil, err
 	}
-
 	defer resp.Body.Close()
 
-	contents, err := io.ReadAll(resp.Body)
-	if err != nil {
+	if err := checkStatus(resp); err != nil {
 		return nil, err
 	}
 
-	var jsonObject map[string]any
+	var result map[string]any
 
-	err = json.Unmarshal(contents, &jsonObject)
-	if err != nil {
-		return nil, err
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode JSON response from %q: %w", url, err)
 	}
 
-	return jsonObject, nil
+	return result, nil
 }
 
-// ToInt converts an interface to an int if possible, otherwise panic
-func ToInt(val any) (result int) {
+func checkStatus(resp *http.Response) error {
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return fmt.Errorf("HTTP request failed: %s", resp.Status)
+	}
+
+	return nil
+}
+
+// ToInt converts a value to int, or panics if the value cannot be converted.
+func ToInt(val any) int {
 	switch val := val.(type) {
 	case int:
-		result = val
+		return val
 	case int64:
-		result = int(val)
+		return int(val)
 	case string:
-		s := val
-		s = strings.ReplaceAll(s, ",", "")
-		tmp, _ := strconv.ParseInt(s, 10, 32)
-		result = int(tmp)
+		val = strings.ReplaceAll(val, ",", "")
+		result, err := strconv.ParseInt(val, 10, 64)
+		if err != nil {
+			panic(fmt.Sprintf("cannot convert %q to int: %v", val, err))
+		}
+		return int(result)
 	case float64:
-		result = int(val)
+		return int(val)
 	default:
-		fmt.Println("Unknown type", val)
-		result = val.(int) // Force a panic
+		panic(fmt.Sprintf("cannot convert %T (%v) to int", val, val))
 	}
-
-	return result
 }
 
-// ToInt64 converts an interface to an int if possible, otherwise panic
-func ToInt64(val any) (result int64) {
+// ToInt64 converts a value to int64, or panics if the value cannot be converted.
+func ToInt64(val any) int64 {
 	switch val := val.(type) {
 	case int:
-		result = int64(val)
+		return int64(val)
 	case int64:
-		result = val
+		return val
 	case string:
-		s := val
-		s = strings.ReplaceAll(s, ",", "")
-		result, _ = strconv.ParseInt(s, 10, 64)
+		val = strings.ReplaceAll(val, ",", "")
+		result, err := strconv.ParseInt(val, 10, 64)
+		if err != nil {
+			panic(fmt.Sprintf("cannot convert %q to int64: %v", val, err))
+		}
+		return result
 	case float64:
-		result = int64(val)
+		return int64(val)
 	default:
-		fmt.Println("Unknown type", val)
-		result = val.(int64) // Force a panic
+		panic(fmt.Sprintf("cannot convert %T (%v) to int64", val, val))
 	}
-
-	return result
 }
 
-// ToString converts an interface to a string if possible, otherwise panic
-func ToString(val any) (result string) {
+// ToString converts a value to string, or panics if the value cannot be converted.
+func ToString(val any) string {
 	switch val := val.(type) {
 	case int:
-		result = strconv.FormatInt(int64(val), 10)
+		return strconv.Itoa(val)
 	case int64:
-		result = strconv.FormatInt(val, 10)
+		return strconv.FormatInt(val, 10)
 	case string:
-		result = val
+		return val
 	case float64:
-		result = strconv.FormatFloat(val, 'f', -1, 64)
+		return strconv.FormatFloat(val, 'f', -1, 64)
 	case nil:
-		result = ""
+		return ""
 	default:
-		fmt.Println("Unknown type", val)
-		result = val.(string) // Force a panic.
+		panic(fmt.Sprintf("cannot convert %T (%v) to string", val, val))
 	}
-
-	return result
 }
 
-// ToFloat64 converts an interface to a float64 if possible, otherwise panic
-func ToFloat64(val any) (result float64) {
+// ToFloat64 converts a value to float64, or panics if the value cannot be converted.
+func ToFloat64(val any) float64 {
 	switch val := val.(type) {
 	case int:
-		result = float64(val)
+		return float64(val)
 	case int64:
-		result = float64(val)
+		return float64(val)
 	case string:
-		s := val
-		s = strings.ReplaceAll(s, ",", "")
-		result, _ = strconv.ParseFloat(s, 64)
+		val = strings.ReplaceAll(val, ",", "")
+		result, err := strconv.ParseFloat(val, 64)
+		if err != nil {
+			panic(fmt.Sprintf("cannot convert %q to float64: %v", val, err))
+		}
+		return result
 	case float64:
-		result = val
+		return val
 	default:
-		fmt.Println("Unknown type", val)
-		result = val.(float64) // Force a panic.
+		panic(fmt.Sprintf("cannot convert %T (%v) to float64", val, val))
 	}
-
-	return result
 }
 
-// MsiValue returns the value at 'keys' in a map[string]interface{} tree
+// MsiValue returns the value at keys in a map[string]any tree.
 func MsiValue(msi any, keys []string) (any, error) {
-	var ok bool
 	value := msi
 
 	for _, key := range keys {
-		value, ok = value.(map[string]any)[key]
+		object, ok := value.(map[string]any)
 		if !ok {
-			return nil, fmt.Errorf("key '%s' not found", key)
+			return nil, fmt.Errorf(
+				"cannot access key %q: value has type %T",
+				key,
+				value,
+			)
+		}
+
+		value, ok = object[key]
+		if !ok {
+			return nil, fmt.Errorf("key %q not found", key)
 		}
 	}
 
 	return value, nil
 }
 
-// MsiValued returns the value at 'keys' in a map[string]interface{} tree, or a default if value is nil
+// MsiValued returns the value at keys in a map[string]any tree,
+// or d if the resulting value is nil.
 func MsiValued(msi any, keys []string, d any) (any, error) {
 	value, err := MsiValue(msi, keys)
 	if value == nil {
-		value = d
+		return d, nil
 	}
 	return value, err
 }
