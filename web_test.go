@@ -1,9 +1,11 @@
 package web
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 )
 
@@ -406,7 +408,7 @@ func TestToFloat64Panics(t *testing.T) {
 	ToFloat64(struct{}{})
 }
 
-func TestMsiValue(t *testing.T) {
+func TestMsaValue(t *testing.T) {
 	data := map[string]any{
 		"preview_item": map[string]any{
 			"sell_price": map[string]any{
@@ -415,80 +417,169 @@ func TestMsiValue(t *testing.T) {
 		},
 	}
 
-	value, err := MsiValue(
+	value, err := MsaValue(
 		data,
 		[]string{"preview_item", "sell_price", "value"},
 	)
 	if err != nil {
-		t.Fatalf("MsiValue() error = %v", err)
+		t.Fatalf("MsaValue() error = %v", err)
 	}
 
 	if value != float64(12345) {
-		t.Errorf("MsiValue() = %v, want %v", value, float64(12345))
+		t.Errorf("MsaValue() = %v, want %v", value, float64(12345))
 	}
 }
 
-func TestMsiValueMissingKey(t *testing.T) {
+func TestMsaValueMissingKey(t *testing.T) {
 	data := map[string]any{
 		"preview_item": map[string]any{},
 	}
 
-	_, err := MsiValue(
+	_, err := MsaValue(
 		data,
 		[]string{"preview_item", "sell_price", "value"},
 	)
 	if err == nil {
-		t.Fatal("MsiValue() expected error, got nil")
+		t.Fatal("MsaValue() expected error, got nil")
 	}
 }
 
-func TestMsiValueWrongType(t *testing.T) {
+func TestMsaValueWrongType(t *testing.T) {
 	data := map[string]any{
 		"preview_item": "not an object",
 	}
 
-	_, err := MsiValue(
+	_, err := MsaValue(
 		data,
 		[]string{"preview_item", "sell_price"},
 	)
 	if err == nil {
-		t.Fatal("MsiValue() expected error, got nil")
+		t.Fatal("MsaValue() expected error, got nil")
 	}
 }
 
-func TestMsiValued(t *testing.T) {
+func TestMsaValued(t *testing.T) {
 	data := map[string]any{
-		"foo": nil,
+		"id":   json.Number("123"),
+		"name": "Widget",
+		"nil":  nil,
+		"nested": map[string]any{
+			"name": "Nested Widget",
+			"nil":  nil,
+		},
 	}
 
-	value, err := MsiValued(
-		data,
-		[]string{"foo"},
-		"default",
-	)
-	if err != nil {
-		t.Fatalf("MsiValued() error = %v", err)
+	tests := []struct {
+		name    string
+		msi     any
+		keys    []string
+		d       any
+		want    any
+		wantErr string
+	}{
+		{
+			name: "existing value",
+			msi:  data,
+			keys: []string{"id"},
+			d:    json.Number("999"),
+			want: json.Number("123"),
+		},
+		{
+			name: "existing string",
+			msi:  data,
+			keys: []string{"name"},
+			d:    "Default",
+			want: "Widget",
+		},
+		{
+			name: "existing nested value",
+			msi:  data,
+			keys: []string{"nested", "name"},
+			d:    "Default",
+			want: "Nested Widget",
+		},
+		{
+			name: "existing nil uses default",
+			msi:  data,
+			keys: []string{"nil"},
+			d:    "Default",
+			want: "Default",
+		},
+		{
+			name: "existing nested nil uses default",
+			msi:  data,
+			keys: []string{"nested", "nil"},
+			d:    "Default",
+			want: "Default",
+		},
+		{
+			name: "missing key returns default",
+			msi:  data,
+			keys: []string{"missing"},
+			d:    "Default",
+			want: "Default",
+		},
+		{
+			name: "missing nested key returns default",
+			msi:  data,
+			keys: []string{"nested", "missing"},
+			d:    "Default",
+			want: "Default",
+		},
+		{
+			name: "cannot traverse string returns default",
+			msi:  data,
+			keys: []string{"name", "missing"},
+			d:    "Default",
+			want: "Default",
+		},
+		{
+			name: "cannot traverse nil returns default",
+			msi:  data,
+			keys: []string{"nil", "missing"},
+			d:    "Default",
+			want: "Default",
+		},
+		{
+			name: "nil input returns default",
+			msi:  nil,
+			keys: []string{"anything"},
+			d:    "Default",
+			want: "Default",
+		},
+		{
+			name: "empty path",
+			msi:  data,
+			keys: nil,
+			d:    "Default",
+			want: data,
+		},
+		{
+			name: "empty path with nil input",
+			msi:  nil,
+			keys: nil,
+			d:    "Default",
+			want: "Default",
+		},
+		{
+			name: "default can be nil",
+			msi:  data,
+			keys: []string{"missing"},
+			d:    nil,
+		},
 	}
 
-	if value != "default" {
-		t.Errorf("MsiValued() = %v, want %q", value, "default")
-	}
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := MsaValued(tt.msi, tt.keys, tt.d)
 
-func TestMsiValuedMissingKey(t *testing.T) {
-	data := map[string]any{}
-
-	value, err := MsiValued(
-		data,
-		[]string{"foo"},
-		"default",
-	)
-
-	if err != nil {
-		t.Fatal("MsiValued() unexpected error:", err)
-	}
-
-	if value != "default" {
-		t.Errorf("MsiValued() value = %v, want %q", value, "default")
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf(
+					"MsaValued() = %#v, want %#v",
+					got,
+					tt.want,
+				)
+			}
+		})
 	}
 }

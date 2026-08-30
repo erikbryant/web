@@ -193,8 +193,21 @@ func ToFloat64(val any) float64 {
 	}
 }
 
-// MsiValue returns the value at keys in a map[string]any tree.
-func MsiValue(msi any, keys []string) (any, error) {
+// MsaValue returns the value at keys within a nested JSON object.
+//
+// A nil value is returned if:
+//   - keys is empty,
+//   - msi is nil,
+//   - a key does not exist, or
+//   - an intermediate value is not a map[string]any.
+//
+// This is intended for traversing values decoded from JSON using
+// encoding/json.
+func MsaValue(msi any, keys []string) (any, error) {
+	if len(keys) == 0 {
+		return msi, nil
+	}
+
 	value := msi
 
 	for _, key := range keys {
@@ -216,12 +229,19 @@ func MsiValue(msi any, keys []string) (any, error) {
 	return value, nil
 }
 
-// MsiValued returns the value at keys in a map[string]any tree,
-// or d if the resulting value is nil.
-func MsiValued(msi any, keys []string, d any) (any, error) {
-	value, err := MsiValue(msi, keys)
-	if value == nil {
-		return d, nil
+// MsaValued returns the value at keys within a nested JSON object.
+//
+// If the path does not exist, or traversal cannot continue because an
+// intermediate value is not a map[string]any, d is returned.
+func MsaValued(msi any, keys []string, d any) any {
+	value, err := MsaValue(msi, keys)
+	if err != nil {
+		return d
 	}
-	return value, err
+
+	if value == nil {
+		return d
+	}
+
+	return value
 }
