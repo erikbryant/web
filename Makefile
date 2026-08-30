@@ -1,14 +1,22 @@
+.PHONY: fmt
 fmt:
 	go fmt ./...
 
-vet: fmt
+.PHONY: vet
+vet:
 	go vet ./...
 
-test: vet
-	go test ./...
+.PHONY: vuln
+vuln:
+	govulncheck ./...
 
-run: test
-	go run ./...
+.PHONY: test
+test:
+	go test -race -cover ./...
 
-# Targets that do not represent actual files
-.PHONY: fmt test vet run
+.PHONY: verify
+verify:
+	go mod verify
+
+.PHONY: check
+check: fmt vet vuln test verify
